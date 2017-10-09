@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
-# include <limits.h>
+#include <limits.h>
+#include <iostream>
 
+using namespace std;
  
 # define NO_OF_CHARS 256
  
@@ -78,12 +80,12 @@ void preprocess_case2(int *shift, int *bpos,
     }
 }
 
-void search( char *txt,  char *pat,)
+void search( char *text,  char *pat)
 {
 
  
     int badchar[NO_OF_CHARS];
-    int s=0, j;
+    int  j;
     int m = strlen(pat);
     int n = strlen(text);
  
@@ -110,7 +112,7 @@ void search( char *txt,  char *pat,)
         /* Keep reducing index j of pattern while 
            characters of pattern and text are 
            matching at this shift s */
-        while(j >= 0 && pat[j] == txt[s+j])
+        while(j >= 0 && pat[j] == text[s+j])
             j--;
  
         /* If the pattern is present at current
@@ -132,15 +134,18 @@ void search( char *txt,  char *pat,)
  
         else
 
-            s += max(shift[j+1] , j - badchar[txt[s+j]]);
+            s += max(shift[j+1] , j - badchar[text[s+j]]);
     }
 }
 
 //Driver 
 int main()
 {
-    char text[] = "ABAAAABAACD";
-    char pat[] = "ABA";
+    char text[100];
+    char pat[100];
+
+    cin>>text>>pat;
+
     search(text, pat);
     return 0;
 }
