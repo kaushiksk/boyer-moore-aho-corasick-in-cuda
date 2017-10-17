@@ -31,7 +31,7 @@ void badCharHeuristic( char *str, int size,
 }
  
 
-// preprocessing for strong good suffix rule
+
 void preprocess_strong_suffix(int *shift, int *bpos,char *pat, int m)
 {
     // m is the length of pattern 
@@ -61,13 +61,9 @@ void preprocess_strong_suffix(int *shift, int *bpos,char *pat, int m)
         j--;
         bpos[i] = j; 
     }
-}
- 
-//Preprocessing for case 2
-void preprocess_case2(int *shift, int *bpos,
-                      char *pat, int m)
-{
-    int i, j;
+
+    //here 
+
     j = bpos[0];
     for(i=0; i<=m; i++)
     {
@@ -81,65 +77,9 @@ void preprocess_case2(int *shift, int *bpos,
         if (i==j)
             j = bpos[j];
     }
+
 }
-
-void search( char *text,  char *pat)
-{
  
-    int badchar[NO_OF_CHARS];
-    int n = strlen(text);
- 
-    int *bpos, *shift;
-    bpos = (int*)malloc(sizeof(int)*(m+1));
-    shift = (int*)malloc(sizeof(int)*(m+1));
-
- 
-    //initialize all occurence of shift to 0
-    for(int i=0;i<m+1;i++) shift[i]=0;
- 
-    //do preprocessing
-    preprocess_strong_suffix(shift, bpos, pat, m);
-    preprocess_case2(shift, bpos, pat, m);
- 
-    /* Fill the bad character array by calling 
-       the preprocessing function badCharHeuristic() 
-       for given pattern */
-    badCharHeuristic(pat, m, badchar);
- 
-    int s = 0;  // s is shift of the pattern with 
-                // respect to text
-    while(s <= (n - m))
-    {
-        int j = m-1;
- 
-        /* Keep reducing index j of pattern while 
-           characters of pattern and text are 
-           matching at this shift s */
-        while(j >= 0 && pat[j] == text[s+j])
-            j--;
- 
-        /* If the pattern is present at current
-           shift, then index j will become -1 after
-           the above loop */
-        if (j < 0)
-        {
-            printf("\n pattern occurs at shift = %d", s);
- 
-            /* Shift the pattern so that the next 
-               character in text aligns with the last 
-               occurrence of it in pattern.
-               The condition s+m < n is necessary for 
-               the case when pattern occurs at the end 
-               of text */
-            s += shift[0];
- 
-        }
- 
-        else
-
-            s += max(shift[j+1] , j - badchar[text[s+j]]);
-    }
-}
 
 //-----------------------------------------------------------------------------------------------
 
@@ -191,13 +131,9 @@ int main(int argc, char const *argv[]) {
 
     int delta2[NO_OF_CHARS];
     
-    /*
-    make_delta1(delta1, h_pat, patlen);
-    make_delta2(delta2, h_pat, patlen);
-	*/
+   
     
     preprocess_strong_suffix(delta1, bpos, h_pat, patlen);
-    preprocess_case2(delta1, bpos, h_pat, patlen);
  	badCharHeuristic(h_pat, patlen, delta2);
 
     cudaMalloc(&d_s, stringlen*sizeof(char));
@@ -217,10 +153,5 @@ int main(int argc, char const *argv[]) {
     int n_blocks = n/block_size + (n%block_size==0?0:1);
     boyer_moore<<<n_blocks,block_size>>>(d_s, stringlen, d_p, patlen, d_d1, d_d2, n);
     
-    //cudaDeviceSynchronize();
-    //int answer;
-    //cudaMemcpyFromSymbol(&answer, d_retval, sizeof(int), 0, cudaMemcpyDeviceToHost);
-
-    //printf("\nString found at %d\n", answer);
     return 0;
 }
