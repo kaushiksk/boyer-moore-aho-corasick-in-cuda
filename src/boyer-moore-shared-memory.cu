@@ -10,22 +10,32 @@
 using namespace std;
 
 #define NO_OF_CHARS 256
- 
+#define SHAREDMEMPERBLOCK 60
+#define NUMTHREADSPERBLOCK 6
+ //int n_blocks = n/block_size + (n%block_size==0?0:1);
 
-
-__global__ void boyer_moore (char *d_string, int n, char *pat, int m, const int * __restrict__ delta1, const int * __restrict__ delta2, int t_size){
+__global__ void boyer_moore (char *d_string, int n, const char* __restrict__ pat, int m, 
+	const int * __restrict__ delta1, const int * __restrict__ delta2, int offset, int cblockSize){
     int i;
-    int tidid = blockIdx.x*blockDim.x+threadIdx.x;//0,1,2,....
+   
+    char s_string[SHAREDMEMPERBLOCK];
 
-    int stringid = tid*(t_size-m+1);//0,(t_size-m+1),.....
+    int idx = threadIdx.x;
 
+    for(i=0;i<offset;i++){
+    	int sharedIndex = idx + i*blockDim.x;
+    	int globalIndex = sharedIndex+blockIdx.x*cblockSize;
 
-    __shared__ char s_string[];
-    //load to shared memory
-    for(i=0;i<t_size;i++){
-      if(stringid+i<n)
-        s_string[i] = d_string[stringid+i]
+    	if(globalIndex<n)
+    		s_string[sharedIndex] = d_string[globalIndex];
+    	else
+    		s_string[sharedIndex] = '*'; //assume * not in d_string
+
+    __syncthreads();
+    	if(blockIdx.x==1)	
+    		printf("%c %d %d\n",s_string[sharedIndex],sharedIndex,globalIndex);
     }
+
 
     //run the thingy in shared memory
 
@@ -99,14 +109,21 @@ void goodCharHeuristic(int *shift, int *bpos,char *pat, int m)
 }
 
 
-char h_string[1000000];
-char h_pat[100];
+char h_string[100];
+char h_pat[10];
 
 int main(int argc, char const *argv[]){
     char *d_s, *d_p;
     int *d_d1, *d_d2;
 
-    cin>>h_string>>h_pat;
+//    cin>>h_string>>h_pat;
+
+    for(int i=0;i<100;i++)
+    	h_string[i] = 'a'+(i%26);
+
+    for(int i=0;i<10;i++)
+    	h_pat[i] = 'a' + (i%26); 
+
 
     int stringlen = strlen(h_string);
     int patlen = strlen(h_pat);
@@ -120,7 +137,7 @@ int main(int argc, char const *argv[]){
    
     
     goodCharHeuristic(delta1, bpos, h_pat, patlen);
- 	  badCharHeuristic(h_pat, patlen, delta2);
+ 	badCharHeuristic(h_pat, patlen, delta2);
 
     cudaMalloc(&d_s, stringlen*sizeof(char));
     cudaMemcpy(d_s, h_string,stringlen*sizeof(char),cudaMemcpyHostToDevice);
@@ -137,13 +154,20 @@ int main(int argc, char const *argv[]){
     int& m=patlen;
     cudaDeviceProp devProp;
     cudaGetDeviceProperties(&devProp,0);
+    
+    int sm_size = SHAREDMEMPERBLOCK;//devProp.sharedMemPerBlock/2; //so that atleast 2 blocks can be scheduled simultaneously
+    int conceptualBlockSize = SHAREDMEMPERBLOCK- m + 1;
+    int n_blocks = (n-1)/(conceptualBlockSize) + 1;//number of blocks
+    int threadsPerBlock = NUMTHREADSPERBLOCK;//devProp.maxThreadsPerBlock;//max threads
+    int offset = sm_size/threadsPerBlock;// number of characters each thread loads into shared mem =D
+   	
 
-    int sm_size = devProp.sharedMemPerBlock/2; //so that atleast 2 blocks can be scheduled simultaneously
-    int n_blocks = n/(sm_size-(m-1)) + (n%(sm_size-(m-1))==0?0:1);//number of blocks
-    int b_size = devProp.maxThreadsPerBlock;//max threads
-    int t_size = sm_size/b_size + m-1;// number of characters each thread compares =D
-    //int n_blocks = n/block_size + (n%block_size==0?0:1);
-    boyer_moore<<<n_blocks,block_size,sm_size*sizeof(char)>>>(d_s, n, d_p, m, d_d1, d_d2,t_size);
+    boyer_moore<<<n_blocks,threadsPerBlock>>>(d_s, n, d_p, m, d_d1, d_d2,
+    															offset,conceptualBlockSize);
     
     return 0;
   }
+
+  //things to care of 
+  //1. Number of Blocks fixed to 2000
+  //2.
