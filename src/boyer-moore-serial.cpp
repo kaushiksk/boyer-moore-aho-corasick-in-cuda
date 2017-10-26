@@ -102,6 +102,15 @@ void search( char *text,  char *pat)
        the preprocessing function badCharHeuristic() 
        for given pattern */
     badCharHeuristic(pat, m, badchar);
+
+
+    for(int i=0;i<m+1;i++)
+      printf("%d ",shift[i]);
+    cout<<endl;
+    for(int i=0;i<NO_OF_CHARS;i++)
+      printf("%d ",badchar[i]);
+    cout<<endl;
+
  
     int s = 0;  // s is shift of the pattern with 
                 // respect to text
@@ -118,9 +127,10 @@ void search( char *text,  char *pat)
         /* If the pattern is present at current
            shift, then index j will become -1 after
            the above loop */
+        printf("%d %d %d %d\n",j+1,s+j,shift[j+1],j - badchar[text[s+j]]);
         if (j < 0)
         {
-            printf("\n pattern occurs at shift = %d", s);
+            printf("\n pattern occurs at shift = %d\n", s);
  
             /* Shift the pattern so that the next 
                character in text aligns with the last 
@@ -131,10 +141,9 @@ void search( char *text,  char *pat)
             s += shift[0];
  
         }
- 
         else
-
             s += max(shift[j+1] , j - badchar[text[s+j]]);
+          //printf("%d \n",s);
     }
 }
 

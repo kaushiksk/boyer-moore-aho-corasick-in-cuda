@@ -19,20 +19,16 @@ void badCharHeuristic( char *str, int size,
                         int badchar[NO_OF_CHARS])
 {
     int i;
- 
-    // Initialize all occurrences as -1
     for (i = 0; i < NO_OF_CHARS; i++)
          badchar[i] = -1;
  
-    // Fill the actual value of last occurrence 
-    // of a character
     for (i = 0; i < size; i++)
          badchar[(int) str[i]] = i;
 }
  
-
-
-void preprocess_strong_suffix(int *shift, int *bpos,char *pat, int m)
+// preprocessing for strong good suffix rule
+void preprocess_strong_suffix(int *shift, int *bpos,
+                                char *pat, int m)
 {
     // m is the length of pattern 
     int i=m, j=m+1;
@@ -57,13 +53,16 @@ void preprocess_strong_suffix(int *shift, int *bpos,char *pat, int m)
         }
         /* p[i-1] matched with p[j-1], border is found.
            store the  beginning position of border */
-        i--;
-        j--;
+        i--;j--;
         bpos[i] = j; 
     }
-
-    //here 
-
+}
+ 
+//Preprocessing for case 2
+void preprocess_case2(int *shift, int *bpos,
+                      char *pat, int m)
+{
+    int i, j;
     j = bpos[0];
     for(i=0; i<=m; i++)
     {
@@ -77,9 +76,7 @@ void preprocess_strong_suffix(int *shift, int *bpos,char *pat, int m)
         if (i==j)
             j = bpos[j];
     }
-
 }
- 
 
 //-----------------------------------------------------------------------------------------------
 
@@ -92,22 +89,31 @@ __global__ void boyer_moore (char *string, int stringlen, char *pat, int patlen,
     __syncthreads();
     if (tid<n)
       {
+
         int beg = tid*patlen;
         int end = min (beg+(2*patlen), stringlen);
-        i = beg+patlen-1;
+
+        //printf("%d %d %d \n",tid,beg,end);
+        i = beg;
         while (i < end) {
+
           int j = patlen-1;
-          while (j >= 0 && (string[i] == pat[j])) {
+          while (j >= 0 && (string[i+j] == pat[j])) {
               //printf("here in loop\n");
-              --i;
               --j;
           }
+
+          if(threadIdx.x==0&&blockIdx.x==0)
+            printf("%d %d %d %d \n",j+1,i+j,delta1[j+1],j - delta2[string[i+j]]);
+
           if (j < 0) {
               d_retval = i+1;
               printf("\nFound at: %d\n",i+1);
               break;
           }
-          i += max(delta1[j+1] , j - delta2[string[i+j]]);
+          else
+            i += max(delta1[j+1] , j - delta2[string[i+j]]);
+         
         }
       }
 }
@@ -126,7 +132,7 @@ int main(int argc, char const *argv[]) {
     int patlen = strlen(h_pat);
     
     int *delta1 = (int*)malloc(sizeof(int)*(patlen+1));
-   
+    for(int i=0;i<patlen+1;i++) delta1[i]=0;
     int *bpos = (int*)malloc(sizeof(int)*(patlen+1));
 
     int delta2[NO_OF_CHARS];
@@ -134,18 +140,25 @@ int main(int argc, char const *argv[]) {
    
     
     preprocess_strong_suffix(delta1, bpos, h_pat, patlen);
- 	badCharHeuristic(h_pat, patlen, delta2);
+    preprocess_case2(delta1, bpos, h_pat, patlen);
+ 	  badCharHeuristic(h_pat, patlen, delta2);
 
+    for(int i=0;i<patlen+1;i++)
+      printf("%d ",delta1[i]);
+    cout<<endl;
+    for(int i=0;i<NO_OF_CHARS;i++)
+      printf("%d ",delta2[i]);
+    cout<<endl;
     cudaMalloc(&d_s, stringlen*sizeof(char));
     cudaMemcpy(d_s, h_string,stringlen*sizeof(char),cudaMemcpyHostToDevice);
     cudaMalloc(&d_p, patlen*sizeof(char));
     cudaMemcpy(d_p, h_pat,patlen*sizeof(char),cudaMemcpyHostToDevice);
 
-    cudaMalloc(&d_d1, patlen*sizeof(char));
-    cudaMemcpy(d_d1, delta1,patlen*sizeof(char),cudaMemcpyHostToDevice);
+    cudaMalloc(&d_d1, (patlen+1)*sizeof(int));
+    cudaMemcpy(d_d1, delta1,(patlen+1)*sizeof(int),cudaMemcpyHostToDevice);
 
-    cudaMalloc(&d_d2, NO_OF_CHARS*sizeof(char));
-    cudaMemcpy(d_d2, delta2,NO_OF_CHARS*sizeof(char),cudaMemcpyHostToDevice);
+    cudaMalloc(&d_d2, NO_OF_CHARS*sizeof(int));
+    cudaMemcpy(d_d2, delta2,NO_OF_CHARS*sizeof(int),cudaMemcpyHostToDevice);
 
     int n = stringlen/patlen;
     
