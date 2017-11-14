@@ -1,4 +1,6 @@
-#include "project-header.h"
+#include "project-header-bits.h"
+
+string patterns[]={"ATC","GTG","GTC","ATG","CAA","ATT"};
 
 texture<int, cudaTextureType2D> tex_go_to_function;
 texture<unsigned int, cudaTextureType1D> tex_failure_function;
@@ -142,6 +144,7 @@ void shared1 ( int m, unsigned char *text, int n, int p_size, int alphabet, int 
                     {
                        // cout << "Word " << arr[j] << " appears from "
                         //    << i - arr[j].size() + 1 << " to " << i << endl;
+                        //cout<<h_out[i]<<" ";
                         indices[j].push_back(i - M + 1);
                         count++;
                     }
@@ -154,6 +157,7 @@ void shared1 ( int m, unsigned char *text, int n, int p_size, int alphabet, int 
 
 	for(int i=0; i<D; i++){
 		ofstream outputfile(patterns[i] + ".txt");
+		cout<<indices[i].size()<<" ";
 		for(int j=0;j<indices[i].size();j++)
         	outputfile<<indices[i][j]<<"\n";
 	}

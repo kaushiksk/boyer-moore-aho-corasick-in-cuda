@@ -11,9 +11,12 @@ int main(){
 	string P="ATGC";
 	double n;
 	cin>>n;
+	
+	ofstream output_file("data.txt");
+
 	srand(time(NULL));
 	for(long long int i=0; i<(int) 1024*1024*n; i++)
-		cout<<P[rand() % 4];
+		output_file<<P[rand() % 4];
 	
 
 }

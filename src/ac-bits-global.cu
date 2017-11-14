@@ -1,4 +1,4 @@
-#include "project-header.h"
+#include "project-header-bits.h"
 
 __global__ void ac_kernel1 ( int *d_state_transition, unsigned int *d_state_supply, unsigned int *d_state_final, unsigned char *d_text, unsigned int *d_out, size_t pitch, int m, int n, int p_size, int alphabet, int numBlocks ) {
 	

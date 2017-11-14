@@ -1,4 +1,4 @@
-#include "project-header.h"
+#include "project-header-bits.h"
 
 texture<int, cudaTextureType2D> tex_state_transition;
 texture<unsigned int, cudaTextureType1D> tex_state_supply;

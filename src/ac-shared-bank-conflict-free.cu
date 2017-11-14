@@ -12,139 +12,69 @@ __global__ void shared_kernel2 ( unsigned char *d_text, unsigned int *d_out, int
 	
 	int i, j, column, matches = 0;
 	
-	int readsPerThread = sharedMemSize / ( blockDim.x * 16 );
+	int chars_per_thread = sharedMemSize / blockDim.x;
 	
-	int startThread = readsPerThread * threadIdx.x;
-	int stopThread = startThread + readsPerThread + ( m - 1 ) / 16 + 1;
-	
-	//Define space in shared memory
-	//For every m - 1 multiple of 16, an additional uint4 should be reserved for redundancy
-	extern __shared__ uint4 uint4_s_array[];
+	int start_thread = chars_per_thread * threadIdx.x;
+	int stop_thread = start_thread + chars_per_thread + m - 1;
 
+	//Define space in shared memory
+	extern __shared__ unsigned char s_array[];
+	
 	//cast data to uint4
 	uint4 *uint4_text = reinterpret_cast < uint4 * > ( d_text );
 	uint4 uint4_var;
 	
 	//recast data to uchar4
 	uchar4 c0, c4, c8, c12;
-
-	//cuPrintf("start %i, stop %i\n", startThread, stopThread);
 	
 	for ( int globalMemIndex = blockIdx.x * sharedMemSize; globalMemIndex < n; globalMemIndex += num_blocks * sharedMemSize ) {
-		
-		for ( i = globalMemIndex / 16 + threadIdx.x, j = 0 + threadIdx.x; ( j < ( sharedMemSize + m - 1 ) / 16 + 1 && i < n / 16 ); i+=blockDim.x, j+=blockDim.x )
-			uint4_s_array[j] = uint4_text[i];
+	
+		for ( i = globalMemIndex/16 + threadIdx.x, j = 0 + threadIdx.x; j < sharedMemSize / 16 && i < n / 16; i+=blockDim.x, j+=blockDim.x ) {
 			
-		__syncthreads();
-		
-		r = 0;
-		
-		for ( column = startThread; column < stopThread && globalMemIndex + column * 16 < n; column++ ) {
-			
-			uint4_var = uint4_s_array[column];
+			uint4_var = uint4_text[i];
 			
 			//recast data back to char after the memory transaction
 			c0 = *reinterpret_cast<uchar4 *> ( &uint4_var.x );
 			c4 = *reinterpret_cast<uchar4 *> ( &uint4_var.y );
 			c8 = *reinterpret_cast<uchar4 *> ( &uint4_var.z );
 			c12 = *reinterpret_cast<uchar4 *> ( &uint4_var.w );
-		
-			while ( ( s = tex2D ( tex_go_to_state, c0.x -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c0.y -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c0.z -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c0.w -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c4.x -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c4.y -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c4.z -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c4.w -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c8.x -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c8.y -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c8.z -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c8.w -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c12.x -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c12.y -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c12.z -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
-					
-			while ( ( s = tex2D ( tex_go_to_state, c12.w -'A', r ) ) == -1 )
-				r = tex1Dfetch ( tex_failure_state, r );
-			r = s;
-					
-			matches += tex1Dfetch ( tex_output_state, r );
+
+						s_array[j * 16 + 0] = c0.x;
+                        s_array[j * 16 + 1] = c0.y;
+                        s_array[j * 16 + 2] = c0.z;
+                        s_array[j * 16 + 3] = c0.w;
+                        
+                        s_array[j * 16 + 4] = c4.x;
+                        s_array[j * 16 + 5] = c4.y;
+                        s_array[j * 16 + 6] = c4.z;
+                        s_array[j * 16 + 7] = c4.w;
+                        
+                        s_array[j * 16 + 8] = c8.x;
+                        s_array[j * 16 + 9] = c8.y;
+                        s_array[j * 16 + 10] = c8.z;
+                        s_array[j * 16 + 11] = c8.w;
+                        
+                        s_array[j * 16 + 12] = c12.x;
+                        s_array[j * 16 + 13] = c12.y;
+                        s_array[j * 16 + 14] = c12.z;
+                        s_array[j * 16 + 15] = c12.w;
+		}
+
+		//Add m - 1 redundant characters at the end of the shared memory
+		if ( threadIdx.x < m - 1 )
+			s_array[sharedMemSize + threadIdx.x] = d_text[globalMemIndex + sharedMemSize + threadIdx.x];
 			
+		__syncthreads();
+		
+		r = 0;
+		
+		for ( column = start_thread; ( column < stop_thread && globalMemIndex + column < n ); column++ ) {
+		
+			while ( ( s = tex2D ( tex_go_to_state, s_array[column]-'A', r ) ) == -1 )
+				r = tex1Dfetch ( tex_failure_state, r );
+			r = s;
+			
+			matches += tex1Dfetch ( tex_output_state, r );
 		}
 		
 		__syncthreads();
@@ -163,7 +93,7 @@ void shared2(int m, unsigned char *text, int n, int p_size, int alphabet, int *g
 
 	size_t pitch;
 	
-	int num_blocks = 30, num_threads_per_block = 256, sharedMemSize = 16128;
+	int num_blocks = 24, num_threads_per_block = 1024, sharedMemSize = 16384;
 	dim3 dimGrid ( num_blocks );
 	dim3 dimBlock ( num_threads_per_block );
 	
