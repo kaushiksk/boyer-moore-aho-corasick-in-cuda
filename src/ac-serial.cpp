@@ -193,7 +193,7 @@ void searchWords(string arr[], int k, string text)
     }
         
     stop = clock();
-    cout<<" "<<count<<"\n";
+    cout<<" "<<count<<" ";
 }
  
 // Driver program to test above
@@ -219,7 +219,7 @@ int main()
 
     
     time = (stop-start)*1000/CLOCKS_PER_SEC;
-    cout<<"\n\nElapsed Time : "<<time<<"ms\n";
+    cout<<" Elapsed Time : "<<time<<"ms\n";
     
     
     

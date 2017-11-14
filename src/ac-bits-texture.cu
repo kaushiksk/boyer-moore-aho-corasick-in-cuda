@@ -1,164 +1,13 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <cuda.h>
-#include<fstream>
-#include<iostream>
-#include <sstream>
-#include<queue>
-using namespace std;
+#include "project-header.h"
 
-# define M 3
-# define D 6
-
-
-
-const int MAXS = M*D + 1;
- 
-const int MAXC = 26;
- 
-unsigned int out[MAXS];
- 
-unsigned int f[MAXS]; 
-
-int g[MAXS][MAXC];
 texture<int, cudaTextureType2D> tex_state_transition;
 texture<unsigned int, cudaTextureType1D> tex_state_supply;
 texture<unsigned int, cudaTextureType1D> tex_state_final;
 
 
-static void checkCUDAError(const char *msg) {
-
-	cudaError_t err = cudaGetLastError();
-
-	if (cudaSuccess != err) {
-		fprintf(stderr, "Cuda error: %s: %s.\n", msg, cudaGetErrorString(err));
-		exit(EXIT_FAILURE);
-	}
-}
-
-// This will output the proper CUDA error strings in the event that a CUDA host call returns an error
-#define checkCudaErrors(err)           __checkCudaErrors (err, __FILE__, __LINE__)
-
-inline static void __checkCudaErrors(cudaError err, const char *file,
-		const int line) {
-
-	if (cudaSuccess != err) {
-		fprintf(stderr, "%s(%i) : CUDA Runtime API error %d: %s.\n", file, line,
-				(int) err, cudaGetErrorString(err));
-		exit(-1);
-	}
-}
+__global__ void texture_memory_kernel( unsigned char *d_text, unsigned int *d_out, int m, int n, int p_size, int alphabet, int numBlocks ) {
 
 
-int buildMatchingMachine(string arr[], int k)
-{
-    // Initialize all values in output function as 0.
-    memset(out, 0, sizeof out);
- 
-    // Initialize all values in goto function as -1.
-    memset(g, -1, sizeof g);
- 
-    // Initially, we just have the 0 state
-    int states = 1;
- 
-    // Construct values for goto function, i.e., fill g[][]
-    // This is same as building a Trie for arr[]
-    for (int i = 0; i < k; ++i)
-    {
-        const string &word = arr[i];
-        int currentState = 0;
- 
-        // Insert all characters of current word in arr[]
-        for (int j = 0; j < word.size(); ++j)
-        {
-            int ch = word[j] - 'A';
- 
-            // Allocate a new node (create a new state) if a
-            // node for ch doesn't exist.
-            if (g[currentState][ch] == -1)
-                g[currentState][ch] = states++;
- 
-            currentState = g[currentState][ch];
-        }
- 
-        // Add current word in output function
-        out[currentState] |= (1 << i);
-    }
- 
-    // For all characters which don't have an edge from
-    // root (or state 0) in Trie, add a goto edge to state
-    // 0 itself
-    for (int ch = 0; ch < MAXC; ++ch)
-        if (g[0][ch] == -1)
-            g[0][ch] = 0;
- 
-    // Now, let's build the failure function
- 
-    // Initialize values in fail function
-    memset(f, -1, sizeof f);
- 
-    // Failure function is computed in breadth first order
-    // using a queue
-    queue<int> q;
- 
-     // Iterate over every possible input
-    for (int ch = 0; ch < MAXC; ++ch)
-    {
-        // All nodes of depth 1 have failure function value
-        // as 0. For example, in above diagram we move to 0
-        // from states 1 and 3.
-        if (g[0][ch] != 0)
-        {
-            f[g[0][ch]] = 0;
-            q.push(g[0][ch]);
-        }
-    }
- 
-    // Now queue has states 1 and 3
-    while (q.size())
-    {
-        // Remove the front state from queue
-        int state = q.front();
-        q.pop();
- 
-        // For the removed state, find failure function for
-        // all those characters for which goto function is
-        // not defined.
-        for (int ch = 0; ch <= MAXC; ++ch)
-        {
-            // If goto function is defined for character 'ch'
-            // and 'state'
-            if (g[state][ch] != -1)
-            {
-                // Find failure state of removed state
-                int failure = f[state];
- 
-                // Find the deepest node labeled by proper
-                // suffix of string from root to current
-                // state.
-                while (g[failure][ch] == -1)
-                      failure = f[failure];
- 
-                failure = g[failure][ch];
-                f[g[state][ch]] = failure;
- 
-                // Merge output values
-                out[g[state][ch]] |= out[failure];
- 
-                // Insert the next level node (of Trie) in Queue
-                q.push(g[state][ch]);
-            }
-        }
-    }
- 
-    return states;
-}
-
-
-__global__ void ac_kernel2 ( unsigned char *d_text, unsigned int *d_out, int m, int n, int p_size, int alphabet, int numBlocks ) {
-
-	//int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	
 	int charactersPerBlock = n / numBlocks;
 	
@@ -188,7 +37,7 @@ __global__ void ac_kernel2 ( unsigned char *d_text, unsigned int *d_out, int m, 
 
 
 
-void cuda_ac2 ( int m, unsigned char *text, int n, int p_size, int alphabet, int *state_transition, unsigned int *state_supply, unsigned int *state_final ) {
+void texture_memory_kernel_wrapper ( int m, unsigned char *text, int n, int p_size, int alphabet, int *state_transition, unsigned int *state_supply, unsigned int *state_final ) {
 
 
 	//Pointer for device memory
@@ -250,7 +99,7 @@ void cuda_ac2 ( int m, unsigned char *text, int n, int p_size, int alphabet, int
 	cudaEventRecord ( start, 0 );
 	
 	//Executing kernel in the device
-	ac_kernel2<<<dimGrid, dimBlock>>>( d_text, d_out, m, n, p_size, alphabet, numBlocks );
+	texture_memory_kernel<<dimGrid, dimBlock>>>( d_text, d_out, m, n, p_size, alphabet, numBlocks );
 	checkCUDAError("kernel invocation");
 	
 	cudaEventRecord ( stop, 0 );
@@ -319,10 +168,7 @@ int main(){
 		for(int j=0;j<MAXC;j++)
 			goToTable[i*MAXC+j] = g[i][j];
 
-//(int m, unsigned char *text, int n, int p_size, int alphabet, int *state_transition, unsigned int *state_supply, unsigned int *state_final ) {
-	
-	//cuda_ac1(M,charText,text.size(),D,26,goToTable,f,out);
-	cuda_ac2(M,charText,text.size(),D,26,goToTable,f,out);
+	texture_memory_kernel_wrapper(M,charText,text.size(),D,26,goToTable,f,out);
 	
 	return 0;
 }
