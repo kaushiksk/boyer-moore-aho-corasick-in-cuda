@@ -6,16 +6,17 @@
 #include <time.h>
 #include <iostream>
 #include <cstring>
-
+#include <fstream>
+#include <sstream>
 using namespace std;
 
 #define NO_OF_CHARS 256
-#define SHAREDMEMPERBLOCK 60
-#define NUMTHREADSPERBLOCK 6
+#define SHAREDMEMPERBLOCK 32768
+#define NUMTHREADSPERBLOCK 1024
  //int n_blocks = n/block_size + (n%block_size==0?0:1);
-
+int total=0;
 __global__ void boyer_moore (char *d_string, int n, const char* __restrict__ pat, int m, 
-	const int * __restrict__ delta1, const int * __restrict__ delta2, int offset, int cblockSize){
+	const int * __restrict__ delta1, const int * __restrict__ delta2, int offset, int cblockSize, int *d_total){
     int i;
    	int gid = cblockSize*blockIdx.x;
     __shared__ char s_string[SHAREDMEMPERBLOCK];
@@ -49,19 +50,14 @@ __global__ void boyer_moore (char *d_string, int n, const char* __restrict__ pat
               --j;
               
               }
-          if (j < 0) {
-              
-              printf("\nFound at: %d %d %d \n",gid+i+1,beg,end);
+          if (j < 0) {            
+              //printf("\nFound at: %d %d %d %d \n",gid+i+1,beg,end,*d_total);
               break;
           }
-
           
           i += max(delta1[j+1] , j - delta2[s_string[i+j]]);
-        }
+        }    
 
-    
-
-      
 }
 
 
@@ -128,22 +124,28 @@ void preprocess_case2(int *shift, int *bpos,
     }
 }
 
-char h_string[100];
-char h_pat[10];
+//char h_string[200];
+//char h_pat[4];
 
 int main(int argc, char const *argv[]){
+    cout<<"1.\n";
     char *d_s, *d_p;
     int *d_d1, *d_d2;
-
+    ifstream t("data.txt");
+	stringstream buffer;
+	buffer << t.rdbuf();	
+	string text = buffer.str();
+	char *h_string = ( char*)text.c_str();
+	char h_pat[]={"ATC"};	
     //cin>>h_string>>h_pat;
 
-    for(int i=0;i<100;i++)
+    /*for(int i=0;i<100;i++)
     	h_string[i] = 'a'+(i%26);
 
     for(int i=0;i<10;i++)
     	h_pat[i] = 'a' + (i%26); 
-	
-
+	*/
+    cout<<"2.\n";
     int stringlen = strlen(h_string);
     int patlen = strlen(h_pat);
     
@@ -153,7 +155,7 @@ int main(int argc, char const *argv[]){
 
     int delta2[NO_OF_CHARS];
     
-   	cout<<h_string<<" "<<h_pat<<endl;
+   	//cout<<h_string<<" "<<h_pat<<endl;
     
     preprocess_strong_suffix(delta1, bpos, h_pat, patlen);
     preprocess_case2(delta1, bpos, h_pat, patlen);
@@ -181,10 +183,23 @@ int main(int argc, char const *argv[]){
     int threadsPerBlock = NUMTHREADSPERBLOCK;//devProp.maxThreadsPerBlock;//max threads
     int offset = sm_size/threadsPerBlock;// number of characters each thread loads into shared mem =D
    	
+   	int *d_total;
+   	int h_total[2];
+   	h_total[0]=1;
+   	h_total[1]=1;
+   	cudaMalloc((void**)&d_total,2*sizeof(int));
+   	
+  	cudaMemcpy(d_total,&h_total,2*sizeof(int),cudaMemcpyHostToDevice);
 
     boyer_moore<<<n_blocks,threadsPerBlock>>>(d_s, n, d_p, m, d_d1, d_d2,
-    															offset,conceptualBlockSize);
+    															offset,conceptualBlockSize,d_total);
+
     
+    cudaMemcpy(h_total,d_total,2*sizeof(int),cudaMemcpyDeviceToHost);
+    
+    printf("\n%d\n",h_total[0]);
+    cout<<"\nlol\n";
+
     return 0;
   }
 

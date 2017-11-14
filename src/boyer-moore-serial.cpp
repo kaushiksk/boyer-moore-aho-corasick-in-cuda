@@ -2,11 +2,13 @@
 #include <string.h>
 #include <limits.h>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
 using namespace std;
  
 # define NO_OF_CHARS 256
- 
+ int count=0;
 // A utility function to get maximum of two integers
 int max (int a, int b) { return (a > b)? a: b; }
  
@@ -127,11 +129,11 @@ void search( char *text,  char *pat)
         /* If the pattern is present at current
            shift, then index j will become -1 after
            the above loop */
-        printf("%d %d %d %d\n",j+1,s+j,shift[j+1],j - badchar[text[s+j]]);
+        //printf("%d %d %d %d\n",j+1,s+j,shift[j+1],j - badchar[text[s+j]]);
         if (j < 0)
         {
-            printf("\n pattern occurs at shift = %d\n", s);
- 
+              //printf("\n pattern occurs at shift = %d\n", s);
+            count++;
             /* Shift the pattern so that the next 
                character in text aligns with the last 
                occurrence of it in pattern.
@@ -150,12 +152,17 @@ void search( char *text,  char *pat)
 //Driver 
 int main()
 {
-    char text[100];
-    char pat[100];
+  ifstream t("data.txt");
+  stringstream buffer;
+  buffer << t.rdbuf();  
+  string text = buffer.str();
+  char *h_string = ( char*)text.c_str();
+  char h_pat[]={"ATC"}; 
 
-    cin>>text>>pat;
-
-    search(text, pat);
+    
+count=0;
+    search(h_string, h_pat);
+    cout<<count;
     return 0;
 }
 
